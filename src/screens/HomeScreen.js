@@ -20,16 +20,26 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.subtitle}>El auténtico juego uruguayo</Text>
         </Animatable.View>
 
+        {/* Instrucciones rápidas */}
+        <Animatable.View animation="fadeIn" delay={300} duration={1000} style={styles.quickGuide}>
+          <Text style={styles.guideTitle}>¿Cómo funciona?</Text>
+          <Text style={styles.guideText}>• 3 cartas por jugador</Text>
+          <Text style={styles.guideText}>• Carta #13 = <Text style={styles.bold}>MUESTRA</Text></Text>
+          <Text style={styles.guideText}>• Las 4 cartas iguales = <Text style={styles.bold}>PIEZAS</Text> (más altas)</Text>
+          <Text style={styles.guideText}>• Llega a <Text style={styles.bold}>30 puntos</Text> para ganar</Text>
+        </Animatable.View>
+
         {/* Botones principales */}
-        <Animatable.View animation="fadeInUp" delay={400} duration={1000} style={styles.buttonsContainer}>
+        <Animatable.View animation="fadeInUp" delay={600} duration={1000} style={styles.buttonsContainer}>
           <Button
             mode="contained"
             onPress={() => navigation.navigate('Game')}
             style={styles.primaryButton}
             labelStyle={styles.primaryButtonText}
             contentStyle={styles.buttonContent}
+            icon="cards-playing-outline"
           >
-            JUGAR AHORA
+            🎮 JUGAR AHORA
           </Button>
 
           <Button
@@ -38,16 +48,17 @@ export default function HomeScreen({ navigation }) {
             style={styles.secondaryButton}
             labelStyle={styles.secondaryButtonText}
             contentStyle={styles.buttonContent}
+            icon="book-open-variant"
           >
-            REGLAS DEL JUEGO
+            📖 VER REGLAS COMPLETAS
           </Button>
         </Animatable.View>
 
         {/* Características */}
-        <Animatable.View animation="fadeIn" delay={800} duration={1000} style={styles.features}>
-          <FeatureItem icon="✓" text="Sistema de Muestra Auténtico" />
-          <FeatureItem icon="✓" text="4 Jugadores en Tiempo Real" />
-          <FeatureItem icon="✓" text="Envido, Truco y Flor" />
+        <Animatable.View animation="fadeIn" delay={900} duration={1000} style={styles.features}>
+          <FeatureItem icon="🎯" text="Muestra Real del Truco Uruguayo" />
+          <FeatureItem icon="👥" text="Juega contra 3 Bots" />
+          <FeatureItem icon="🔥" text="Envido, Truco y Vale 4" />
         </Animatable.View>
 
         {/* Footer */}
@@ -132,6 +143,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  quickGuide: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+  },
+  guideTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0038A8',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  guideText: {
+    fontSize: 15,
+    color: '#333',
+    marginBottom: 8,
+    lineHeight: 22,
+  },
+  bold: {
+    fontWeight: 'bold',
+    color: '#FF6B35',
+  },
   features: {
     width: '100%',
     maxWidth: 400,
@@ -146,8 +183,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   featureIcon: {
-    fontSize: 20,
-    color: '#4CAF50',
+    fontSize: 24,
   },
   featureText: {
     fontSize: 15,

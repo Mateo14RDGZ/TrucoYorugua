@@ -191,28 +191,56 @@ const GameScreen = ({ navigation }) => {
     }
   };
 
-  // Bot juega carta (estrategia simple)
+  // Bot juega carta (estrategia mejorada)
   const botPlayCard = (botPlayer, currentPlayers) => {
     const hand = botPlayer.hand;
     if (hand.length === 0) return;
 
-    // Estrategia simple: jugar carta más baja si no es el último
     let cardToPlay;
+    
     if (currentBaza.length === 3) {
-      // Es el último, intentar ganar
-      const bestCard = hand.reduce((best, card) => {
-        const wouldWin = currentBaza.every(play => 
-          compareCards(card, play.card) > 0
-        );
-        if (wouldWin) return card;
-        return best;
-      }, hand[0]);
-      cardToPlay = bestCard;
-    } else {
-      // No es el último, jugar carta más baja
-      cardToPlay = hand.reduce((lowest, card) => 
-        compareCards(lowest, card) < 0 ? lowest : card
+      // Es el último, intentar ganar con la carta más baja posible
+      const winningCards = hand.filter(card => 
+        currentBaza.every(play => compareCards(card, play.card) > 0)
       );
+      
+      if (winningCards.length > 0) {
+        // Ganar con la carta más baja posible
+        cardToPlay = winningCards.reduce((lowest, card) => 
+          compareCards(lowest, card) < 0 ? lowest : card
+        );
+      } else {
+        // No puede ganar, jugar la carta más baja
+        cardToPlay = hand.reduce((lowest, card) => 
+          compareCards(lowest, card) < 0 ? lowest : card
+        );
+      }
+    } else if (currentBaza.length === 0) {
+      // Es el primero, jugar carta media
+      const sortedHand = [...hand].sort((a, b) => compareCards(b, a));
+      cardToPlay = sortedHand[Math.floor(sortedHand.length / 2)];
+    } else {
+      // Es segundo o tercero
+      const highestInBaza = currentBaza.reduce((highest, play) => 
+        compareCards(play.card, highest.card) > 0 ? play : highest
+      );
+      
+      const canWin = hand.some(card => compareCards(card, highestInBaza.card) > 0);
+      
+      if (canWin && currentBaza.length === 1) {
+        // Puede ganar y es el segundo, intentar ganar
+        const winningCards = hand.filter(card => 
+          compareCards(card, highestInBaza.card) > 0
+        );
+        cardToPlay = winningCards.reduce((lowest, card) => 
+          compareCards(lowest, card) < 0 ? lowest : card
+        );
+      } else {
+        // No puede ganar o es el tercero, jugar bajo
+        cardToPlay = hand.reduce((lowest, card) => 
+          compareCards(lowest, card) < 0 ? lowest : card
+        );
+      }
     }
 
     playCardForPlayer(botPlayer, cardToPlay);
@@ -342,13 +370,20 @@ const GameScreen = ({ navigation }) => {
     );
   };
 
-  // Renderizar carta
+  // Renderizar carta estilo baraja española
   const renderCard = (card, onPress, isSelected = false) => {
     const suitColors = {
-      espadas: '#000',
-      bastos: '#000',
-      oros: '#D4AF37',
-      copas: '#D4AF37'
+      espadas: '#2C3E50',
+      bastos: '#8B4513',
+      oros: '#FFD700',
+      copas: '#C41E3A'
+    };
+
+    const cardBgColors = {
+      espadas: '#F8F9FA',
+      bastos: '#FFF8DC',
+      oros: '#FFFACD',
+      copas: '#FFF0F5'
     };
 
     return (
@@ -356,27 +391,49 @@ const GameScreen = ({ navigation }) => {
         key={`${card.value}-${card.suit}`}
         onPress={() => onPress && onPress(card)}
         activeOpacity={0.7}
+        disabled={!onPress}
       >
         <Animatable.View
           animation={isSelected ? 'pulse' : undefined}
           iterationCount="infinite"
           duration={1000}
         >
-          <PaperCard
+          <View
             style={[
               styles.card,
+              { backgroundColor: cardBgColors[card.suit] },
               isSelected && styles.cardSelected
             ]}
           >
-            <View style={styles.cardContent}>
-              <Text style={[styles.cardValue, { color: suitColors[card.suit] }]}>
-                {card.value}
-              </Text>
-              <Text style={[styles.cardSuit, { color: suitColors[card.suit] }]}>
-                {SUIT_SYMBOLS[card.suit]}
-              </Text>
+            <View style={styles.cardBorder}>
+              <View style={styles.cardTopCorner}>
+                <Text style={[styles.cardValueSmall, { color: suitColors[card.suit] }]}>
+                  {card.value}
+                </Text>
+                <Text style={[styles.cardSuitSmall, { color: suitColors[card.suit] }]}>
+                  {SUIT_SYMBOLS[card.suit]}
+                </Text>
+              </View>
+              
+              <View style={styles.cardCenter}>
+                <Text style={[styles.cardSuitLarge, { color: suitColors[card.suit] }]}>
+                  {SUIT_SYMBOLS[card.suit]}
+                </Text>
+                <Text style={[styles.cardValueLarge, { color: suitColors[card.suit] }]}>
+                  {card.value}
+                </Text>
+              </View>
+              
+              <View style={styles.cardBottomCorner}>
+                <Text style={[styles.cardSuitSmall, { color: suitColors[card.suit] }]}>
+                  {SUIT_SYMBOLS[card.suit]}
+                </Text>
+                <Text style={[styles.cardValueSmall, { color: suitColors[card.suit] }]}>
+                  {card.value}
+                </Text>
+              </View>
             </View>
-          </PaperCard>
+          </View>
         </Animatable.View>
       </TouchableOpacity>
     );
@@ -441,12 +498,22 @@ const GameScreen = ({ navigation }) => {
       ) : (
         <ScrollView contentContainerStyle={styles.gameContainer}>
           
-          {/* Muestra */}
+          {/* Muestra e Información */}
           {muestra && (
             <Animatable.View animation="flipInY" style={styles.muestraContainer}>
-              <Text style={styles.muestraLabel}>🎴 MUESTRA (Piezas: {muestra.value})</Text>
-              <View style={styles.muestraCard}>
-                {renderCard(muestra)}
+              <View style={styles.muestraHeader}>
+                <View style={styles.muestraInfo}>
+                  <Text style={styles.muestraLabel}>🎴 MUESTRA</Text>
+                  <Text style={styles.muestraDescription}>
+                    Las piezas son todos los <Text style={styles.highlight}>{muestra.value}</Text>
+                  </Text>
+                  <Text style={styles.muestraHint}>
+                    ♠ → ♣ → ♦ → ♥ (orden de palos)
+                  </Text>
+                </View>
+                <View style={styles.muestraCardContainer}>
+                  {renderCard(muestra)}
+                </View>
               </View>
             </Animatable.View>
           )}
@@ -505,13 +572,25 @@ const GameScreen = ({ navigation }) => {
           {/* Mano del jugador humano */}
           {humanPlayer && (
             <View style={styles.handSection}>
-              <Text style={styles.handLabel}>Tu Mano</Text>
+              <View style={styles.handHeader}>
+                <Text style={styles.handLabel}>🎴 Tu Mano</Text>
+                {currentPlayer?.isHuman && (
+                  <Text style={styles.handHint}>👆 Toca una carta para seleccionarla</Text>
+                )}
+                {!currentPlayer?.isHuman && (
+                  <Text style={styles.handHintWait}>⏳ Esperando turno...</Text>
+                )}
+              </View>
               <View style={styles.handCards}>
-                {humanPlayer.hand.map(card => 
-                  renderCard(
-                    card,
-                    () => currentPlayer?.isHuman && setSelectedCard(card),
-                    selectedCard === card
+                {humanPlayer.hand.length === 0 ? (
+                  <Text style={styles.noCardsText}>No te quedan cartas</Text>
+                ) : (
+                  humanPlayer.hand.map(card => 
+                    renderCard(
+                      card,
+                      currentPlayer?.isHuman ? () => setSelectedCard(card) : null,
+                      selectedCard === card
+                    )
                   )
                 )}
               </View>
@@ -521,36 +600,51 @@ const GameScreen = ({ navigation }) => {
           {/* Acciones */}
           <View style={styles.actionsContainer}>
             {currentPlayer?.isHuman && selectedCard && (
-              <Button
-                mode="contained"
-                onPress={handlePlayCard}
-                style={styles.playButton}
-                icon="cards-playing-outline"
-              >
-                Jugar Carta
-              </Button>
+              <Animatable.View animation="bounceIn">
+                <Button
+                  mode="contained"
+                  onPress={handlePlayCard}
+                  style={styles.playButton}
+                  icon="cards-playing-outline"
+                  contentStyle={styles.playButtonContent}
+                >
+                  JUGAR {cardToString(selectedCard)}
+                </Button>
+              </Animatable.View>
+            )}
+            
+            {currentPlayer?.isHuman && !selectedCard && (
+              <View style={styles.instructionBox}>
+                <Text style={styles.instructionText}>
+                  ℹ️ Selecciona una carta de tu mano para jugarla
+                </Text>
+              </View>
             )}
             
             <View style={styles.callButtons}>
-              {envidoPhase && !envidoCalled && (
+              {envidoPhase && !envidoCalled && currentPlayer?.isHuman && (
                 <Button
                   mode="outlined"
                   onPress={handleEnvido}
-                  style={styles.callButton}
+                  style={[styles.callButton, styles.envidoButton]}
                   labelStyle={styles.callButtonLabel}
+                  icon="cards-diamond"
                 >
                   Envido
                 </Button>
               )}
-              <Button
-                mode="outlined"
-                onPress={handleTruco}
-                style={styles.callButton}
-                labelStyle={styles.callButtonLabel}
-                disabled={trucoLevel >= 3}
-              >
-                {trucoLevel === 0 ? 'Truco' : trucoLevel === 1 ? 'Re Truco' : 'Vale 4'}
-              </Button>
+              {currentPlayer?.isHuman && (
+                <Button
+                  mode="outlined"
+                  onPress={handleTruco}
+                  style={[styles.callButton, styles.trucoButton]}
+                  labelStyle={styles.callButtonLabel}
+                  disabled={trucoLevel >= 3}
+                  icon="fire"
+                >
+                  {trucoLevel === 0 ? 'Truco!' : trucoLevel === 1 ? 'Re Truco!' : 'Vale 4!'}
+                </Button>
+              )}
             </View>
           </View>
 
@@ -610,20 +704,44 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   muestraContainer: {
-    alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.95)',
     padding: 16,
     borderRadius: 12,
     marginBottom: 8,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+  },
+  muestraHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  muestraInfo: {
+    flex: 1,
   },
   muestraLabel: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#0038A8',
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  muestraCard: {
-    transform: [{ scale: 1.1 }],
+  muestraDescription: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 4,
+  },
+  muestraHint: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  highlight: {
+    fontWeight: 'bold',
+    color: '#FF6B35',
+    fontSize: 16,
+  },
+  muestraCardContainer: {
+    transform: [{ scale: 0.9 }],
   },
   messageContainer: {
     backgroundColor: 'rgba(255,107,53,0.95)',
@@ -704,12 +822,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.95)',
     borderRadius: 12,
     padding: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(0,56,168,0.3)',
+  },
+  handHeader: {
+    marginBottom: 12,
   },
   handLabel: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#0038A8',
-    marginBottom: 12,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  handHint: {
+    fontSize: 13,
+    color: '#FF6B35',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  handHintWait: {
+    fontSize: 13,
+    color: '#999',
     textAlign: 'center',
   },
   handCards: {
@@ -717,32 +851,62 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     flexWrap: 'wrap',
+    minHeight: 130,
+    alignItems: 'center',
+  },
+  noCardsText: {
+    color: '#999',
+    fontSize: 14,
+    fontStyle: 'italic',
   },
   card: {
-    width: 70,
-    height: 100,
-    backgroundColor: '#FFF',
-    borderRadius: 8,
-    elevation: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 85,
+    height: 120,
+    borderRadius: 10,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    borderWidth: 2,
+    borderColor: '#8B4513',
   },
   cardSelected: {
-    borderWidth: 3,
+    borderWidth: 4,
     borderColor: '#FF6B35',
-    elevation: 8,
-    transform: [{ translateY: -10 }],
+    elevation: 10,
+    transform: [{ translateY: -15 }, { scale: 1.05 }],
   },
-  cardContent: {
+  cardBorder: {
+    flex: 1,
+    padding: 6,
+    justifyContent: 'space-between',
+  },
+  cardTopCorner: {
+    alignItems: 'flex-start',
+  },
+  cardCenter: {
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    flex: 1,
   },
-  cardValue: {
-    fontSize: 24,
+  cardBottomCorner: {
+    alignItems: 'flex-end',
+    transform: [{ rotate: '180deg' }],
+  },
+  cardValueSmall: {
+    fontSize: 16,
     fontWeight: 'bold',
   },
-  cardSuit: {
-    fontSize: 28,
+  cardSuitSmall: {
+    fontSize: 16,
+  },
+  cardValueLarge: {
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  cardSuitLarge: {
+    fontSize: 40,
   },
   actionsContainer: {
     gap: 12,
@@ -750,6 +914,22 @@ const styles = StyleSheet.create({
   },
   playButton: {
     backgroundColor: '#FF6B35',
+    borderRadius: 10,
+  },
+  playButtonContent: {
+    height: 50,
+  },
+  instructionBox: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#0038A8',
+  },
+  instructionText: {
+    color: '#333',
+    fontSize: 14,
+    textAlign: 'center',
   },
   callButtons: {
     flexDirection: 'row',
@@ -757,11 +937,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   callButton: {
-    borderColor: '#FFFFFF',
     flex: 1,
+    borderWidth: 2,
+    borderRadius: 8,
+  },
+  envidoButton: {
+    borderColor: '#4CAF50',
+    backgroundColor: 'rgba(76,175,80,0.1)',
+  },
+  trucoButton: {
+    borderColor: '#FF6B35',
+    backgroundColor: 'rgba(255,107,53,0.1)',
   },
   callButtonLabel: {
     color: '#FFFFFF',
+    fontWeight: 'bold',
   },
   endGameContainer: {
     flex: 1,
