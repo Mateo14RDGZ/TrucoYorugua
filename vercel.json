@@ -1,19 +1,13 @@
 {
-  "version": 2,
-  "builds": [
+  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "web-build",
+  "devCommand": "npm run web",
+  "framework": null,
+  "rewrites": [
     {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "web-build",
-        "installCommand": "npm install --legacy-peer-deps"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
