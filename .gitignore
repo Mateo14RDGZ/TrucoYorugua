@@ -32,7 +32,10 @@ Thumbs.db
 *.key
 *.mobileprovision
 *.orig.*
-web-build/
+
+# Temporary and log files
+expo-log.txt
+*.log
 
 # macOS
 .DS_Store
