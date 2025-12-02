@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { View, StyleSheet, Dimensions, ScrollView } from 'react-native';
+import { Text, Button, Card } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Animatable from 'react-native-animatable';
 
@@ -12,32 +12,43 @@ export default function HomeScreen({ navigation }) {
       colors={['#0038A8', '#74ACDF', '#FFFFFF']}
       style={styles.container}
     >
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Logo y Título */}
-        <Animatable.View animation="fadeInDown" duration={1200} style={styles.header}>
-          <Text style={styles.title}>🎴</Text>
+        <Animatable.View animation="bounceIn" duration={1500} style={styles.header}>
+          <View style={styles.logoContainer}>
+            <Text style={styles.cardEmoji}>🃏</Text>
+            <Text style={styles.cardEmoji2}>♠️</Text>
+            <Text style={styles.cardEmoji3}>♥️</Text>
+          </View>
           <Text style={styles.appName}>TRUCO YORUGUA</Text>
           <Text style={styles.subtitle}>El auténtico juego uruguayo</Text>
         </Animatable.View>
 
-        {/* Instrucciones rápidas */}
-        <Animatable.View animation="fadeIn" delay={300} duration={1000} style={styles.quickGuide}>
-          <Text style={styles.guideTitle}>¿Cómo funciona?</Text>
-          <Text style={styles.guideText}>• 3 cartas por jugador</Text>
-          <Text style={styles.guideText}>• Carta #13 = <Text style={styles.bold}>MUESTRA</Text></Text>
-          <Text style={styles.guideText}>• Las 4 cartas iguales = <Text style={styles.bold}>PIEZAS</Text> (más altas)</Text>
-          <Text style={styles.guideText}>• Llega a <Text style={styles.bold}>30 puntos</Text> para ganar</Text>
+        {/* Tarjeta explicativa */}
+        <Animatable.View animation="fadeInUp" delay={400} duration={1000} style={styles.mainCard}>
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text style={styles.cardTitle}>🎴 La Muestra y las Piezas</Text>
+              <Text style={styles.cardText}>
+                La <Text style={styles.highlight}>MUESTRA</Text> es la carta #13. Las 4 cartas del mismo valor son las{' '}
+                <Text style={styles.highlight}>PIEZAS</Text> (las más altas).
+              </Text>
+              <Text style={styles.cardText}>
+                Ejemplo: Si la muestra es 5♥, las piezas son: 5♠ {'>'} 5♣ {'>'} 5♦ {'>'} 5♥
+              </Text>
+            </Card.Content>
+          </Card>
         </Animatable.View>
 
         {/* Botones principales */}
-        <Animatable.View animation="fadeInUp" delay={600} duration={1000} style={styles.buttonsContainer}>
+        <Animatable.View animation="pulse" delay={800} duration={1500} style={styles.buttonsContainer}>
           <Button
             mode="contained"
             onPress={() => navigation.navigate('Game')}
             style={styles.primaryButton}
             labelStyle={styles.primaryButtonText}
             contentStyle={styles.buttonContent}
-            icon="cards-playing-outline"
+            icon="play"
           >
             🎮 JUGAR AHORA
           </Button>
@@ -50,33 +61,45 @@ export default function HomeScreen({ navigation }) {
             contentStyle={styles.buttonContent}
             icon="book-open-variant"
           >
-            📖 VER REGLAS COMPLETAS
+            📖 REGLAS COMPLETAS
           </Button>
         </Animatable.View>
 
-        {/* Características */}
-        <Animatable.View animation="fadeIn" delay={900} duration={1000} style={styles.features}>
-          <FeatureItem icon="🎯" text="Muestra Real del Truco Uruguayo" />
-          <FeatureItem icon="👥" text="Juega contra 3 Bots" />
-          <FeatureItem icon="🔥" text="Envido, Truco y Vale 4" />
+        {/* Características en grid */}
+        <Animatable.View animation="fadeInUp" delay={1000} duration={1000} style={styles.features}>
+          <View style={styles.featureRow}>
+            <View style={styles.featureBox}>
+              <Text style={styles.featureEmoji}>⚡</Text>
+              <Text style={styles.featureTitle}>Truco Completo</Text>
+              <Text style={styles.featureDesc}>Truco, Re Truco y Vale 4</Text>
+            </View>
+            <View style={styles.featureBox}>
+              <Text style={styles.featureEmoji}>🎲</Text>
+              <Text style={styles.featureTitle}>Envido y Flor</Text>
+              <Text style={styles.featureDesc}>Todas las reglas oficiales</Text>
+            </View>
+          </View>
+          <View style={styles.featureRow}>
+            <View style={styles.featureBox}>
+              <Text style={styles.featureEmoji}>🎯</Text>
+              <Text style={styles.featureTitle}>Muestra Real</Text>
+              <Text style={styles.featureDesc}>Sistema auténtico uruguayo</Text>
+            </View>
+            <View style={styles.featureBox}>
+              <Text style={styles.featureEmoji}>👥</Text>
+              <Text style={styles.featureTitle}>4 Jugadores</Text>
+              <Text style={styles.featureDesc}>Tú y 3 bots inteligentes</Text>
+            </View>
+          </View>
         </Animatable.View>
 
         {/* Footer */}
         <Animatable.View animation="fadeIn" delay={1200} duration={1000} style={styles.footer}>
-          <Text style={styles.footerText}>🇺🇾 Hecho en Uruguay</Text>
-          <Text style={styles.version}>v1.4.0</Text>
+          <Text style={styles.footerText}>🇺🇾 Hecho con ❤️ en Uruguay</Text>
+          <Text style={styles.version}>Versión 1.4.0</Text>
         </Animatable.View>
-      </View>
+      </ScrollView>
     </LinearGradient>
-  );
-}
-
-function FeatureItem({ icon, text }) {
-  return (
-    <View style={styles.featureItem}>
-      <Text style={styles.featureIcon}>{icon}</Text>
-      <Text style={styles.featureText}>{text}</Text>
-    </View>
   );
 }
 
@@ -84,124 +107,154 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
-    flex: 1,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 60,
+  scrollContent: {
+    flexGrow: 1,
+    paddingVertical: 40,
     paddingHorizontal: 20,
   },
   header: {
     alignItems: 'center',
-    marginTop: height * 0.08,
+    marginTop: 20,
+    marginBottom: 30,
   },
-  title: {
-    fontSize: 80,
-    marginBottom: 10,
+  logoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  cardEmoji: {
+    fontSize: 60,
+    marginHorizontal: 5,
+  },
+  cardEmoji2: {
+    fontSize: 50,
+    marginTop: -10,
+  },
+  cardEmoji3: {
+    fontSize: 50,
+    marginTop: 10,
   },
   appName: {
-    fontSize: 42,
+    fontSize: 48,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
-    letterSpacing: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 3, height: 3 },
+    textShadowRadius: 6,
+    letterSpacing: 3,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 18,
     color: '#FFFFFF',
     marginTop: 8,
-    opacity: 0.9,
-  },
-  buttonsContainer: {
-    width: '100%',
-    maxWidth: 400,
-    gap: 16,
-  },
-  primaryButton: {
-    backgroundColor: '#FF6B35',
-    borderRadius: 12,
-    elevation: 4,
-  },
-  secondaryButton: {
-    borderColor: '#FFFFFF',
-    borderWidth: 2,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  buttonContent: {
-    height: 56,
-  },
-  primaryButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  secondaryButtonText: {
-    fontSize: 16,
+    opacity: 0.95,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
-  quickGuide: {
+  mainCard: {
     width: '100%',
-    maxWidth: 400,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: '#FFD700',
+    marginBottom: 25,
   },
-  guideTitle: {
+  card: {
+    backgroundColor: 'rgba(255, 255, 255, 0.97)',
+    elevation: 8,
+    borderRadius: 16,
+  },
+  cardTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#0038A8',
     marginBottom: 12,
     textAlign: 'center',
   },
-  guideText: {
+  cardText: {
     fontSize: 15,
     color: '#333',
-    marginBottom: 8,
-    lineHeight: 22,
+    lineHeight: 24,
+    marginBottom: 10,
   },
-  bold: {
+  highlight: {
     fontWeight: 'bold',
     color: '#FF6B35',
+    fontSize: 16,
+  },
+  buttonsContainer: {
+    width: '100%',
+    gap: 16,
+    marginBottom: 25,
+  },
+  primaryButton: {
+    backgroundColor: '#FF6B35',
+    borderRadius: 16,
+    elevation: 8,
+  },
+  secondaryButton: {
+    borderColor: '#FFFFFF',
+    borderWidth: 2,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  buttonContent: {
+    height: 60,
+  },
+  primaryButtonText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  secondaryButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   features: {
     width: '100%',
-    maxWidth: 400,
-    gap: 12,
+    marginBottom: 20,
   },
-  featureItem: {
+  featureRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    padding: 12,
-    borderRadius: 8,
     gap: 12,
+    marginBottom: 12,
   },
-  featureIcon: {
-    fontSize: 24,
+  featureBox: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    elevation: 4,
   },
-  featureText: {
-    fontSize: 15,
-    color: '#FFFFFF',
-    fontWeight: '500',
+  featureEmoji: {
+    fontSize: 36,
+    marginBottom: 8,
+  },
+  featureTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0038A8',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  featureDesc: {
+    fontSize: 11,
+    color: '#666',
+    textAlign: 'center',
   },
   footer: {
     alignItems: 'center',
-    gap: 4,
+    marginTop: 20,
+    paddingBottom: 20,
   },
   footerText: {
     fontSize: 14,
     color: '#FFFFFF',
-    opacity: 0.8,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   version: {
     fontSize: 12,
     color: '#FFFFFF',
-    opacity: 0.6,
+    opacity: 0.7,
   },
 });

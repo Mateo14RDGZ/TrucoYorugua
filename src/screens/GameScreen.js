@@ -2,62 +2,92 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
-  Dimensions,
   TouchableOpacity,
   Alert,
   ScrollView,
+  Dimensions,
 } from 'react-native';
-import { Text, Button, Card as PaperCard, Badge } from 'react-native-paper';
+import { Text, Button, IconButton } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Animatable from 'react-native-animatable';
 
 const { width, height } = Dimensions.get('window');
 
-// Configuración del mazo
+// Configuración del Truco Uruguayo
 const SUITS = ['espadas', 'bastos', 'oros', 'copas'];
 const SUIT_SYMBOLS = { espadas: '♠', bastos: '♣', oros: '♦', copas: '♥' };
-const SUIT_ORDER = { espadas: 4, bastos: 3, oros: 2, copas: 1 };
+const SUIT_COLORS = { 
+  espadas: '#000000', 
+  bastos: '#000000', 
+  oros: '#D4AF37', 
+  copas: '#DC143C' 
+};
 const VALUES = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12]; // Sin 8 ni 9
 const BASE_CARD_ORDER = [1, 2, 3, 12, 11, 10, 7, 6, 5, 4];
 
 const GameScreen = ({ navigation }) => {
-  const [gamePhase, setGamePhase] = useState('initial'); // initial, playing, roundEnd, gameEnd
+  // Estados del juego
   const [muestra, setMuestra] = useState(null);
   const [players, setPlayers] = useState([]);
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [currentBaza, setCurrentBaza] = useState([]);
   const [bazasWon, setBazasWon] = useState({ team1: 0, team2: 0 });
   const [scores, setScores] = useState({ team1: 0, team2: 0 });
-  const [selectedCard, setSelectedCard] = useState(null);
   const [roundNumber, setRoundNumber] = useState(0);
-  const [trucoLevel, setTrucoLevel] = useState(0); // 0: nada, 1: truco, 2: retruco, 3: vale4
+  const [selectedCard, setSelectedCard] = useState(null);
+  
+  // Estados de cantos
+  const [trucoLevel, setTrucoLevel] = useState(0);
   const [trucoPoints, setTrucoPoints] = useState(1);
-  const [envidoPhase, setEnvidoPhase] = useState(false);
   const [envidoCalled, setEnvidoCalled] = useState(false);
   const [florCalled, setFlorCalled] = useState(false);
-  const [lastWinner, setLastWinner] = useState(null);
-  const [firstBazaWinner, setFirstBazaWinner] = useState(null);
-  const [message, setMessage] = useState('');
   const [canCallEnvido, setCanCallEnvido] = useState(true);
+  
+  // Estados UI
+  const [message, setMessage] = useState('');
+  const [gamePhase, setGamePhase] = useState('playing');
+  const [firstBazaWinner, setFirstBazaWinner] = useState(null);
 
-  // Inicializar juego
   useEffect(() => {
     startNewGame();
   }, []);
+
+  // ========== FUNCIONES DE MAZO ==========
+  
+  const createDeck = () => {
+    const deck = [];
+    SUITS.forEach(suit => {
+      VALUES.forEach(value => {
+        deck.push({ suit, value });
+      });
+    });
+    return deck;
+  };
+
+  const shuffleDeck = (deck) => {
+    const shuffled = [...deck];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
+  // ========== FUNCIONES DE JUEGO ==========
 
   const startNewGame = () => {
     const deck = createDeck();
     const shuffled = shuffleDeck(deck);
     
-    // Repartir 3 cartas a cada jugador
+    // Repartir 3 cartas a cada jugador (12 cartas)
     const newPlayers = [
       { id: 0, name: 'Tú', hand: shuffled.slice(0, 3), team: 1, isHuman: true },
-      { id: 1, name: 'Bot 1', hand: shuffled.slice(3, 6), team: 2, isHuman: false },
-      { id: 2, name: 'Compañero', hand: shuffled.slice(6, 9), team: 1, isHuman: false },
-      { id: 3, name: 'Bot 2', hand: shuffled.slice(9, 12), team: 2, isHuman: false },
+      { id: 1, name: 'Rival 1', hand: shuffled.slice(3, 6), team: 2, isHuman: false },
+      { id: 2, name: 'Tu Compañero', hand: shuffled.slice(6, 9), team: 1, isHuman: false },
+      { id: 3, name: 'Rival 2', hand: shuffled.slice(9, 12), team: 2, isHuman: false },
     ];
 
-    // La carta 13 es la muestra
+    // Carta 13 = MUESTRA
     const muestraCard = shuffled[12];
     
     setPlayers(newPlayers);
@@ -69,49 +99,21 @@ const GameScreen = ({ navigation }) => {
     setGamePhase('playing');
     setTrucoLevel(0);
     setTrucoPoints(1);
-    setEnvidoPhase(true);
     setEnvidoCalled(false);
     setFlorCalled(false);
     setCanCallEnvido(true);
-    setLastWinner(null);
     setFirstBazaWinner(null);
+    setSelectedCard(null);
     
-    // Detectar Flor automáticamente
     const humanHasFlor = hasFlor(newPlayers[0].hand);
-    if (humanHasFlor) {
-      setMessage('¡Nueva mano! Muestra: ' + cardToString(muestraCard) + ' - ¡Tienes FLOR!');
-    } else {
-      setMessage('¡Nueva mano! La muestra es: ' + cardToString(muestraCard));
-    }
+    setMessage(humanHasFlor ? 
+      `🎴 Muestra: ${cardToString(muestraCard)} | ¡Tienes FLOR! 🌸` : 
+      `🎴 Muestra: ${cardToString(muestraCard)} | Las piezas son los ${muestraCard.value}s`
+    );
   };
 
-  // Crear mazo
-  const createDeck = () => {
-    const deck = [];
-    SUITS.forEach(suit => {
-      VALUES.forEach(value => {
-        deck.push({ suit, value });
-      });
-    });
-    return deck;
-  };
+  // ========== FUNCIONES DE ENVIDO Y FLOR ==========
 
-  // Barajar
-  const shuffleDeck = (deck) => {
-    const shuffled = [...deck];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
-
-  // Convertir carta a string
-  const cardToString = (card) => {
-    return `${card.value}${SUIT_SYMBOLS[card.suit]}`;
-  };
-
-  // Verificar si tiene Flor (3 cartas del mismo palo)
   const hasFlor = (hand) => {
     const suitCount = {};
     hand.forEach(card => {
@@ -120,21 +122,19 @@ const GameScreen = ({ navigation }) => {
     return Object.values(suitCount).some(count => count === 3);
   };
 
-  // Calcular puntos de Envido
   const calculateEnvido = (hand) => {
     const bySuit = {};
     hand.forEach(card => {
       if (!bySuit[card.suit]) bySuit[card.suit] = [];
-      const envidoValue = [10, 11, 12].includes(card.value) ? 0 : card.value;
-      bySuit[card.suit].push(envidoValue);
+      const value = [10, 11, 12].includes(card.value) ? 0 : card.value;
+      bySuit[card.suit].push(value);
     });
 
     let maxEnvido = 0;
     Object.values(bySuit).forEach(cards => {
       if (cards.length >= 2) {
         cards.sort((a, b) => b - a);
-        const envido = cards[0] + cards[1] + 20;
-        maxEnvido = Math.max(maxEnvido, envido);
+        maxEnvido = Math.max(maxEnvido, cards[0] + cards[1] + 20);
       } else if (cards.length === 1) {
         maxEnvido = Math.max(maxEnvido, cards[0]);
       }
@@ -143,13 +143,12 @@ const GameScreen = ({ navigation }) => {
     return maxEnvido;
   };
 
-  // Calcular puntos de Flor
   const calculateFlor = (hand) => {
     const bySuit = {};
     hand.forEach(card => {
       if (!bySuit[card.suit]) bySuit[card.suit] = [];
-      const florValue = [10, 11, 12].includes(card.value) ? 0 : card.value;
-      bySuit[card.suit].push(florValue);
+      const value = [10, 11, 12].includes(card.value) ? 0 : card.value;
+      bySuit[card.suit].push(value);
     });
 
     for (const cards of Object.values(bySuit)) {
@@ -160,14 +159,124 @@ const GameScreen = ({ navigation }) => {
     return 0;
   };
 
-  // Obtener orden dinámico según muestra
+  const handleEnvido = () => {
+    if (!canCallEnvido) {
+      Alert.alert('⚠️ Envido', 'El envido se canta antes de jugar la primera carta');
+      return;
+    }
+    if (envidoCalled) {
+      Alert.alert('⚠️ Envido', 'Ya se cantó envido');
+      return;
+    }
+
+    const allEnvidos = players.map(p => ({
+      id: p.id,
+      name: p.name,
+      team: p.team,
+      points: calculateEnvido(p.hand)
+    }));
+
+    const maxEnvido = Math.max(...allEnvidos.map(e => e.points));
+    const winner = allEnvidos.find(e => e.points === maxEnvido);
+    const winningTeam = winner.team === 1 ? 'team1' : 'team2';
+
+    setEnvidoCalled(true);
+    setMessage(`🎲 ENVIDO: ${winner.name} gana con ${maxEnvido} puntos (+2 pts)`);
+    
+    const newScores = {
+      ...scores,
+      [winningTeam]: scores[winningTeam] + 2
+    };
+    setScores(newScores);
+
+    if (newScores.team1 >= 30 || newScores.team2 >= 30) {
+      setTimeout(() => {
+        setGamePhase('gameEnd');
+        setMessage(newScores.team1 >= 30 ? '🏆 ¡TU EQUIPO GANÓ!' : '💔 El rival ganó');
+      }, 2000);
+    }
+  };
+
+  const handleFlor = () => {
+    if (!canCallEnvido) {
+      Alert.alert('⚠️ Flor', 'La flor se canta antes de jugar la primera carta');
+      return;
+    }
+
+    const humanPlayer = players.find(p => p.isHuman);
+    if (!hasFlor(humanPlayer.hand)) {
+      Alert.alert('⚠️ Flor', 'No tienes Flor (necesitas 3 cartas del mismo palo)');
+      return;
+    }
+
+    if (florCalled) {
+      Alert.alert('⚠️ Flor', 'Ya se cantó flor');
+      return;
+    }
+
+    const allFlores = players
+      .filter(p => hasFlor(p.hand))
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        team: p.team,
+        points: calculateFlor(p.hand)
+      }));
+
+    if (allFlores.length === 0) {
+      setMessage('Nadie tiene Flor');
+      return;
+    }
+
+    const maxFlor = Math.max(...allFlores.map(f => f.points));
+    const winner = allFlores.find(f => f.points === maxFlor);
+    const winningTeam = winner.team === 1 ? 'team1' : 'team2';
+
+    setFlorCalled(true);
+    setMessage(`🌸 FLOR: ${winner.name} gana con ${maxFlor} puntos (+3 pts)`);
+    
+    const newScores = {
+      ...scores,
+      [winningTeam]: scores[winningTeam] + 3
+    };
+    setScores(newScores);
+
+    if (newScores.team1 >= 30 || newScores.team2 >= 30) {
+      setTimeout(() => {
+        setGamePhase('gameEnd');
+        setMessage(newScores.team1 >= 30 ? '🏆 ¡TU EQUIPO GANÓ!' : '💔 El rival ganó');
+      }, 2000);
+    }
+  };
+
+  const handleTruco = () => {
+    if (trucoLevel >= 3) {
+      Alert.alert('⚠️ Truco', 'Ya estás en Vale 4 (máximo)');
+      return;
+    }
+
+    const newLevel = trucoLevel + 1;
+    const pointsMap = [1, 2, 3, 4];
+    
+    setTrucoLevel(newLevel);
+    setTrucoPoints(pointsMap[newLevel]);
+    
+    const names = ['Truco', 'Re Truco', 'Vale Cuatro'];
+    setMessage(`⚡ ${names[newLevel - 1]}! (${pointsMap[newLevel]} puntos en juego)`);
+  };
+
+  // ========== LÓGICA DE CARTAS ==========
+
+  const cardToString = (card) => {
+    return `${card.value}${SUIT_SYMBOLS[card.suit]}`;
+  };
+
   const getDynamicCardOrder = () => {
     if (!muestra) return BASE_CARD_ORDER;
     
-    const muestraValue = muestra.value;
-    const muestraIndex = BASE_CARD_ORDER.indexOf(muestraValue);
+    const muestraIndex = BASE_CARD_ORDER.indexOf(muestra.value);
     
-    // Rotar el orden: las piezas van primero, luego desde muestra+1
+    // El orden comienza después de la muestra
     const rotated = [
       ...BASE_CARD_ORDER.slice(muestraIndex + 1),
       ...BASE_CARD_ORDER.slice(0, muestraIndex)
@@ -176,39 +285,41 @@ const GameScreen = ({ navigation }) => {
     return rotated;
   };
 
-  // Comparar dos cartas
   const compareCards = (card1, card2) => {
     if (!muestra) return 0;
 
-    // Las piezas (mismo valor que muestra) son las más altas
+    // PIEZAS (mismo valor que muestra) son las más altas
     const isPieza1 = card1.value === muestra.value;
     const isPieza2 = card2.value === muestra.value;
 
     if (isPieza1 && !isPieza2) return 1;
     if (!isPieza1 && isPieza2) return -1;
     
+    // Entre piezas, por palo: espadas > bastos > oros > copas
     if (isPieza1 && isPieza2) {
-      // Entre piezas, gana por palo
-      return SUIT_ORDER[card1.suit] - SUIT_ORDER[card2.suit];
+      const suitOrder = { espadas: 4, bastos: 3, oros: 2, copas: 1 };
+      return suitOrder[card1.suit] - suitOrder[card2.suit];
     }
 
-    // Comparar por orden dinámico
+    // Orden dinámico
     const order = getDynamicCardOrder();
     const index1 = order.indexOf(card1.value);
     const index2 = order.indexOf(card2.value);
 
     if (index1 !== index2) {
-      return index2 - index1; // Menor índice = mayor valor
+      return index2 - index1; // Menor índice = mayor carta
     }
 
-    // Mismo valor, comparar por palo
-    return SUIT_ORDER[card1.suit] - SUIT_ORDER[card2.suit];
+    // Mismo valor, por palo
+    const suitOrder = { espadas: 4, bastos: 3, oros: 2, copas: 1 };
+    return suitOrder[card1.suit] - suitOrder[card2.suit];
   };
 
-  // Jugar carta humano
+  // ========== JUEGO DE CARTAS ==========
+
   const handlePlayCard = () => {
     if (!selectedCard) {
-      Alert.alert('Atención', 'Selecciona una carta para jugar');
+      Alert.alert('⚠️', 'Selecciona una carta para jugar');
       return;
     }
 
@@ -219,19 +330,15 @@ const GameScreen = ({ navigation }) => {
     setSelectedCard(null);
   };
 
-  // Jugar carta de cualquier jugador
   const playCardForPlayer = (player, card) => {
-    // Primera carta jugada: cerrar fase de Envido
+    // Primera carta: cerrar fase de envido
     if (currentBaza.length === 0 && canCallEnvido) {
       setCanCallEnvido(false);
-      setEnvidoPhase(false);
     }
 
-    // Agregar carta a la baza actual
     const newBaza = [...currentBaza, { player: player.id, card }];
     setCurrentBaza(newBaza);
 
-    // Remover carta de la mano del jugador
     const updatedPlayers = players.map(p => {
       if (p.id === player.id) {
         return { ...p, hand: p.hand.filter(c => c !== card) };
@@ -242,7 +349,7 @@ const GameScreen = ({ navigation }) => {
 
     setMessage(`${player.name} jugó ${cardToString(card)}`);
 
-    // Si completamos la baza (4 cartas), evaluarla
+    // Baza completa (4 cartas)
     if (newBaza.length === 4) {
       setTimeout(() => evaluateBaza(newBaza, updatedPlayers), 1500);
     } else {
@@ -250,121 +357,97 @@ const GameScreen = ({ navigation }) => {
       const nextIndex = (currentPlayerIndex + 1) % 4;
       setCurrentPlayerIndex(nextIndex);
       
-      // Si es bot, jugar automáticamente
-      setTimeout(() => {
-        if (!updatedPlayers[nextIndex].isHuman) {
-          botPlayCard(updatedPlayers[nextIndex], updatedPlayers);
-        }
-      }, 1000);
+      // Bot juega
+      if (!updatedPlayers[nextIndex].isHuman) {
+        setTimeout(() => botPlayCard(updatedPlayers[nextIndex], updatedPlayers), 1000);
+      }
     }
   };
 
-  // Bot juega carta (estrategia mejorada)
   const botPlayCard = (botPlayer, currentPlayers) => {
     const hand = botPlayer.hand;
     if (hand.length === 0) return;
 
     let cardToPlay;
     
-    if (currentBaza.length === 3) {
-      // Es el último, intentar ganar con la carta más baja posible
-      const winningCards = hand.filter(card => 
-        currentBaza.every(play => compareCards(card, play.card) > 0)
-      );
-      
-      if (winningCards.length > 0) {
-        // Ganar con la carta más baja posible
-        cardToPlay = winningCards.reduce((lowest, card) => 
-          compareCards(lowest, card) < 0 ? lowest : card
-        );
-      } else {
-        // No puede ganar, jugar la carta más baja
-        cardToPlay = hand.reduce((lowest, card) => 
-          compareCards(lowest, card) < 0 ? lowest : card
-        );
-      }
-    } else if (currentBaza.length === 0) {
-      // Es el primero, jugar carta media
-      const sortedHand = [...hand].sort((a, b) => compareCards(b, a));
+    // Estrategia simple: jugar carta media-baja
+    const sortedHand = [...hand].sort((a, b) => compareCards(b, a));
+    
+    if (currentBaza.length === 0) {
+      // Primero: carta media
       cardToPlay = sortedHand[Math.floor(sortedHand.length / 2)];
     } else {
-      // Es segundo o tercero
+      // Ver si puede ganar
       const highestInBaza = currentBaza.reduce((highest, play) => 
         compareCards(play.card, highest.card) > 0 ? play : highest
       );
       
-      const canWin = hand.some(card => compareCards(card, highestInBaza.card) > 0);
+      const winningCards = hand.filter(card => 
+        compareCards(card, highestInBaza.card) > 0
+      );
       
-      if (canWin && currentBaza.length === 1) {
-        // Puede ganar y es el segundo, intentar ganar
-        const winningCards = hand.filter(card => 
-          compareCards(card, highestInBaza.card) > 0
-        );
+      if (winningCards.length > 0 && currentBaza.length <= 2) {
+        // Puede ganar, jugar carta más baja ganadora
         cardToPlay = winningCards.reduce((lowest, card) => 
           compareCards(lowest, card) < 0 ? lowest : card
         );
       } else {
-        // No puede ganar o es el tercero, jugar bajo
-        cardToPlay = hand.reduce((lowest, card) => 
-          compareCards(lowest, card) < 0 ? lowest : card
-        );
+        // No puede ganar, jugar carta más baja
+        cardToPlay = sortedHand[sortedHand.length - 1];
       }
     }
 
     playCardForPlayer(botPlayer, cardToPlay);
   };
 
-  // Evaluar baza
   const evaluateBaza = (baza, currentPlayers) => {
-    // Encontrar ganador de la baza (null si hay empate)
+    // Encontrar ganador
     let winningPlay = baza[0];
-    let hasDrawn = false;
+    let isParda = false;
     
     baza.forEach(play => {
       const comparison = compareCards(play.card, winningPlay.card);
       if (comparison > 0) {
         winningPlay = play;
-        hasDrawn = false;
+        isParda = false;
       } else if (comparison === 0 && play !== winningPlay) {
-        hasDrawn = true;
+        isParda = true;
       }
     });
 
     const winner = currentPlayers.find(p => p.id === winningPlay.player);
     const winningTeam = winner.team === 1 ? 'team1' : 'team2';
 
-    // Guardar ganador de primera baza para regla de empates
-    if (roundNumber === 0) {
+    // Guardar ganador de primera baza
+    if (roundNumber === 0 && !isParda) {
       setFirstBazaWinner(winningPlay.player);
     }
 
-    if (hasDrawn) {
-      setMessage(`Baza empatada (parda)`);
+    if (isParda) {
+      setMessage(`Baza PARDA (empate)`);
     } else {
-      setMessage(`¡${winner.name} gana la baza!`);
+      setMessage(`✅ ${winner.name} gana la baza`);
     }
-    setLastWinner(winner.id);
 
     // Actualizar bazas ganadas
-    const newBazasWon = {
+    const newBazasWon = isParda ? bazasWon : {
       ...bazasWon,
       [winningTeam]: bazasWon[winningTeam] + 1
     };
     setBazasWon(newBazasWon);
     setCurrentBaza([]);
 
-    // Ver si se termina la ronda (3 bazas jugadas o alguien ganó 2)
+    // Verificar fin de ronda
     const totalBazas = newBazasWon.team1 + newBazasWon.team2;
     
     if (newBazasWon.team1 >= 2 || newBazasWon.team2 >= 2 || totalBazas >= 3) {
       setTimeout(() => endRound(newBazasWon), 2000);
     } else {
-      // Siguiente baza: empieza el ganador
+      // Siguiente baza
       setTimeout(() => {
         setCurrentPlayerIndex(winner.id);
         setRoundNumber(roundNumber + 1);
         
-        // Si es bot, jugar
         if (!winner.isHuman) {
           setTimeout(() => botPlayCard(winner, currentPlayers), 1000);
         }
@@ -372,25 +455,24 @@ const GameScreen = ({ navigation }) => {
     }
   };
 
-  // Finalizar ronda
   const endRound = (finalBazas) => {
     let roundWinner;
+    
     if (finalBazas.team1 > finalBazas.team2) {
       roundWinner = 'team1';
-      setMessage('¡Tu equipo ganó la mano!');
+      setMessage('🎉 ¡Tu equipo ganó la mano!');
     } else if (finalBazas.team2 > finalBazas.team1) {
       roundWinner = 'team2';
-      setMessage('El equipo rival ganó la mano');
+      setMessage('❌ El rival ganó la mano');
     } else {
-      // Empate: gana el que ganó la primera baza (si la hubo)
+      // Empate: regla de primera baza
       if (firstBazaWinner !== null) {
         const firstWinnerTeam = players.find(p => p.id === firstBazaWinner)?.team;
         roundWinner = firstWinnerTeam === 1 ? 'team1' : 'team2';
-        setMessage('¡Empate! Gana quien ganó la primera baza');
+        setMessage('⚖️ Empate - Gana quien ganó la primera baza');
       } else {
-        // Si la primera baza fue parda, gana mano
-        roundWinner = 'team1'; // El que reparte (jugador 0)
-        setMessage('Todas pardas - Gana la mano');
+        roundWinner = 'team1';
+        setMessage('⚖️ Todas pardas - Gana la mano');
       }
     }
 
@@ -401,433 +483,291 @@ const GameScreen = ({ navigation }) => {
     };
     setScores(newScores);
 
-    // Ver si alguien ganó el juego
+    // Verificar fin de juego
     if (newScores.team1 >= 30 || newScores.team2 >= 30) {
-      setGamePhase('gameEnd');
-    } else {
       setTimeout(() => {
-        startNewGame();
+        setGamePhase('gameEnd');
+        setMessage(newScores.team1 >= 30 ? 
+          '🏆 ¡GANASTE! Tu equipo llegó a 30 puntos' : 
+          '💔 Perdiste. El rival llegó a 30 puntos'
+        );
       }, 3000);
+    } else {
+      setTimeout(() => startNewGame(), 3000);
     }
   };
 
-  // Cantar truco
-  const handleTruco = () => {
-    if (trucoLevel >= 3) {
-      Alert.alert('Ya está en Vale Cuatro');
-      return;
-    }
+  // ========== RENDERIZADO ==========
+
+  const renderCard = (card, index, isHuman) => {
+    const isPieza = card.value === muestra?.value;
+    const isSelected = selectedCard === card;
     
-    const levels = ['Truco', 'Re Truco', 'Vale Cuatro'];
-    const points = [2, 3, 4];
-    
-    setTrucoLevel(trucoLevel + 1);
-    setTrucoPoints(points[trucoLevel]);
-    setMessage(`¡${levels[trucoLevel]}! Ahora vale ${points[trucoLevel]} puntos`);
-  };
-
-  // Cantar envido
-  const handleEnvido = () => {
-    if (!canCallEnvido) {
-      Alert.alert('El envido se canta antes de la primera carta');
-      return;
-    }
-    
-    if (envidoCalled) {
-      Alert.alert('Ya se cantó envido');
-      return;
-    }
-
-    const humanPlayer = players.find(p => p.isHuman);
-    const humanEnvido = calculateEnvido(humanPlayer.hand);
-
-    // Calcular envido de todos los jugadores
-    const allEnvidos = players.map(p => ({
-      id: p.id,
-      name: p.name,
-      team: p.team,
-      envido: calculateEnvido(p.hand)
-    }));
-
-    const maxEnvido = Math.max(...allEnvidos.map(e => e.envido));
-    const winner = allEnvidos.find(e => e.envido === maxEnvido);
-    const winningTeam = winner.team === 1 ? 'team1' : 'team2';
-
-    setEnvidoCalled(true);
-    setMessage(`¡Envido! ${winner.name} gana con ${maxEnvido} puntos`);
-    
-    // Sumar 2 puntos al ganador del envido
-    const newScores = {
-      ...scores,
-      [winningTeam]: scores[winningTeam] + 2
-    };
-    setScores(newScores);
-    
-    // Verificar si alguien ganó
-    if (newScores.team1 >= 30 || newScores.team2 >= 30) {
-      setTimeout(() => {
-        setGamePhase('gameEnd');
-      }, 2000);
-    }
-  };
-
-  // Cantar Flor
-  const handleFlor = () => {
-    if (!canCallEnvido) {
-      Alert.alert('La flor se canta antes de la primera carta');
-      return;
-    }
-
-    const humanPlayer = players.find(p => p.isHuman);
-    if (!hasFlor(humanPlayer.hand)) {
-      Alert.alert('No tienes Flor', 'Necesitas 3 cartas del mismo palo');
-      return;
-    }
-
-    if (florCalled) {
-      Alert.alert('Ya se cantó flor');
-      return;
-    }
-
-    const humanFlor = calculateFlor(humanPlayer.hand);
-
-    // Ver si otros tienen flor
-    const allFlores = players.filter(p => hasFlor(p.hand)).map(p => ({
-      id: p.id,
-      name: p.name,
-      team: p.team,
-      flor: calculateFlor(p.hand)
-    }));
-
-    if (allFlores.length === 0) {
-      setMessage('Nadie tiene Flor');
-      return;
-    }
-
-    const maxFlor = Math.max(...allFlores.map(f => f.flor));
-    const winner = allFlores.find(f => f.flor === maxFlor);
-    const winningTeam = winner.team === 1 ? 'team1' : 'team2';
-
-    setFlorCalled(true);
-    setMessage(`¡Flor! ${winner.name} gana con ${maxFlor} puntos`);
-    
-    // Sumar 3 puntos al ganador de la flor
-    const newScores = {
-      ...scores,
-      [winningTeam]: scores[winningTeam] + 3
-    };
-    setScores(newScores);
-
-    if (newScores.team1 >= 30 || newScores.team2 >= 30) {
-      setTimeout(() => {
-        setGamePhase('gameEnd');
-      }, 2000);
-    }
-  };
-
-  // Volver al menú
-  const handleBackToMenu = () => {
-    Alert.alert(
-      'Salir',
-      '¿Quieres volver al menú principal?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Salir', onPress: () => navigation.goBack() }
-      ]
+    return (
+      <Animatable.View
+        key={index}
+        animation="fadeIn"
+        duration={500}
+        delay={index * 100}
+      >
+        <TouchableOpacity
+          onPress={() => isHuman && setSelectedCard(card)}
+          disabled={!isHuman}
+          style={[
+            styles.card,
+            isSelected && styles.cardSelected,
+            isPieza && styles.cardPieza
+          ]}
+        >
+          <Text style={[styles.cardValue, { color: SUIT_COLORS[card.suit] }]}>
+            {card.value}
+          </Text>
+          <Text style={[styles.cardSuit, { color: SUIT_COLORS[card.suit] }]}>
+            {SUIT_SYMBOLS[card.suit]}
+          </Text>
+          {isPieza && (
+            <View style={styles.piezaBadge}>
+              <Text style={styles.piezaText}>⭐</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </Animatable.View>
     );
   };
 
-  // Renderizar carta estilo baraja española
-  const renderCard = (card, onPress, isSelected = false) => {
-    const suitColors = {
-      espadas: '#2C3E50',
-      bastos: '#8B4513',
-      oros: '#FFD700',
-      copas: '#C41E3A'
-    };
+  const renderPlayer = (player, position) => {
+    const isActive = currentPlayerIndex === player.id;
+    const cardCount = player.hand.length;
+    
+    return (
+      <View style={[styles.playerContainer, styles[`player${position}`]]}>
+        <View style={[styles.playerInfo, isActive && styles.playerActive]}>
+          <Text style={styles.playerName}>
+            {player.name} {player.team === 1 ? '💙' : '❤️'}
+          </Text>
+          <Text style={styles.playerCards}>{cardCount} cartas</Text>
+        </View>
+        
+        {player.isHuman ? (
+          <View style={styles.humanHand}>
+            {player.hand.map((card, idx) => renderCard(card, idx, true))}
+          </View>
+        ) : (
+          <View style={styles.botCards}>
+            {[...Array(cardCount)].map((_, idx) => (
+              <View key={idx} style={styles.cardBack}>
+                <Text style={styles.cardBackText}>🃏</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
 
-    const cardBgColors = {
-      espadas: '#F8F9FA',
-      bastos: '#FFF8DC',
-      oros: '#FFFACD',
-      copas: '#FFF0F5'
-    };
+  const renderBaza = () => {
+    if (currentBaza.length === 0) return null;
 
     return (
-      <TouchableOpacity
-        key={`${card.value}-${card.suit}`}
-        onPress={() => onPress && onPress(card)}
-        activeOpacity={0.7}
-        disabled={!onPress}
-      >
-        <Animatable.View
-          animation={isSelected ? 'pulse' : undefined}
-          iterationCount="infinite"
-          duration={1000}
-        >
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: cardBgColors[card.suit] },
-              isSelected && styles.cardSelected
-            ]}
-          >
-            <View style={styles.cardBorder}>
-              <View style={styles.cardTopCorner}>
-                <Text style={[styles.cardValueSmall, { color: suitColors[card.suit] }]}>
-                  {card.value}
-                </Text>
-                <Text style={[styles.cardSuitSmall, { color: suitColors[card.suit] }]}>
-                  {SUIT_SYMBOLS[card.suit]}
-                </Text>
+      <View style={styles.bazaContainer}>
+        <Text style={styles.bazaTitle}>Baza Actual</Text>
+        <View style={styles.bazaCards}>
+          {currentBaza.map((play, idx) => {
+            const player = players.find(p => p.id === play.player);
+            return (
+              <View key={idx} style={styles.bazaCard}>
+                <Text style={styles.bazaPlayerName}>{player?.name}</Text>
+                <View style={styles.card}>
+                  <Text style={[styles.cardValue, { color: SUIT_COLORS[play.card.suit] }]}>
+                    {play.card.value}
+                  </Text>
+                  <Text style={[styles.cardSuit, { color: SUIT_COLORS[play.card.suit] }]}>
+                    {SUIT_SYMBOLS[play.card.suit]}
+                  </Text>
+                </View>
               </View>
-              
-              <View style={styles.cardCenter}>
-                <Text style={[styles.cardSuitLarge, { color: suitColors[card.suit] }]}>
-                  {SUIT_SYMBOLS[card.suit]}
-                </Text>
-                <Text style={[styles.cardValueLarge, { color: suitColors[card.suit] }]}>
-                  {card.value}
-                </Text>
-              </View>
-              
-              <View style={styles.cardBottomCorner}>
-                <Text style={[styles.cardSuitSmall, { color: suitColors[card.suit] }]}>
-                  {SUIT_SYMBOLS[card.suit]}
-                </Text>
-                <Text style={[styles.cardValueSmall, { color: suitColors[card.suit] }]}>
-                  {card.value}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </Animatable.View>
-      </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
     );
   };
+
+  // ========== RENDER PRINCIPAL ==========
+
+  if (gamePhase === 'gameEnd') {
+    return (
+      <LinearGradient colors={['#0038A8', '#74ACDF']} style={styles.container}>
+        <View style={styles.endGameContainer}>
+          <Animatable.View animation="bounceIn" style={styles.endGameCard}>
+            <Text style={styles.endGameTitle}>{message}</Text>
+            <View style={styles.finalScores}>
+              <View style={styles.finalScoreBox}>
+                <Text style={styles.finalScoreLabel}>Tu Equipo 💙</Text>
+                <Text style={styles.finalScoreValue}>{scores.team1}</Text>
+              </View>
+              <Text style={styles.finalScoreVs}>VS</Text>
+              <View style={styles.finalScoreBox}>
+                <Text style={styles.finalScoreLabel}>Rivales ❤️</Text>
+                <Text style={styles.finalScoreValue}>{scores.team2}</Text>
+              </View>
+            </View>
+            <Button
+              mode="contained"
+              onPress={() => {
+                setScores({ team1: 0, team2: 0 });
+                startNewGame();
+              }}
+              style={styles.playAgainButton}
+              labelStyle={styles.playAgainButtonText}
+            >
+              Jugar de Nuevo
+            </Button>
+            <Button
+              mode="text"
+              onPress={() => navigation.goBack()}
+              labelStyle={styles.backButtonText}
+            >
+              Volver al Inicio
+            </Button>
+          </Animatable.View>
+        </View>
+      </LinearGradient>
+    );
+  }
 
   const currentPlayer = players[currentPlayerIndex];
   const humanPlayer = players.find(p => p.isHuman);
 
   return (
-    <LinearGradient
-      colors={['#0038A8', '#74ACDF']}
-      style={styles.container}
-    >
+    <LinearGradient colors={['#0E4C2F', '#1B5E38']} style={styles.container}>
       <View style={styles.header}>
-        <Button
+        <IconButton
           icon="arrow-left"
-          mode="text"
-          onPress={handleBackToMenu}
-          labelStyle={styles.backButton}
-        >
-          Menú
-        </Button>
-        <View style={styles.scoreBoard}>
-          <View style={styles.teamScoreBox}>
-            <Text style={styles.teamLabel}>Tu Equipo</Text>
-            <Text style={styles.scoreText}>{scores.team1}</Text>
+          iconColor="#FFFFFF"
+          size={24}
+          onPress={() => navigation.goBack()}
+        />
+        
+        {/* Scoreboard */}
+        <View style={styles.scoreboard}>
+          <View style={styles.scoreTeam}>
+            <Text style={styles.scoreLabel}>Tu Equipo 💙</Text>
+            <Text style={styles.scoreValue}>{scores.team1}</Text>
           </View>
-          <Text style={styles.scoreSeparator}>-</Text>
-          <View style={styles.teamScoreBox}>
-            <Text style={styles.teamLabel}>Rivales</Text>
-            <Text style={styles.scoreText}>{scores.team2}</Text>
+          <Text style={styles.scoreVs}>VS</Text>
+          <View style={styles.scoreTeam}>
+            <Text style={styles.scoreLabel}>Rivales ❤️</Text>
+            <Text style={styles.scoreValue}>{scores.team2}</Text>
           </View>
         </View>
       </View>
 
-      {gamePhase === 'gameEnd' ? (
-        <View style={styles.endGameContainer}>
-          <Animatable.View animation="bounceIn" style={styles.endGameCard}>
-            <Text style={styles.endGameTitle}>
-              {scores.team1 >= 30 ? '🎉 ¡GANASTE!' : '😔 PERDISTE'}
-            </Text>
-            <Text style={styles.endGameScore}>
-              {scores.team1} - {scores.team2}
-            </Text>
+      <ScrollView style={styles.gameArea} contentContainerStyle={styles.gameContent}>
+        {/* Muestra */}
+        {muestra && (
+          <View style={styles.muestraContainer}>
+            <Text style={styles.muestraLabel}>MUESTRA</Text>
+            <View style={[styles.card, styles.muestraCard]}>
+              <Text style={[styles.cardValue, { color: SUIT_COLORS[muestra.suit] }]}>
+                {muestra.value}
+              </Text>
+              <Text style={[styles.cardSuit, { color: SUIT_COLORS[muestra.suit] }]}>
+                {SUIT_SYMBOLS[muestra.suit]}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Mensaje */}
+        <Animatable.View animation="fadeIn" style={styles.messageContainer}>
+          <Text style={styles.messageText}>{message}</Text>
+        </Animatable.View>
+
+        {/* Bazas ganadas */}
+        <View style={styles.bazasInfo}>
+          <Text style={styles.bazasText}>
+            Bazas: 💙 {bazasWon.team1} - {bazasWon.team2} ❤️
+          </Text>
+        </View>
+
+        {/* Baza actual */}
+        {renderBaza()}
+
+        {/* Mesa de juego */}
+        <View style={styles.gameTable}>
+          {/* Rival 1 (arriba izquierda) */}
+          {players[1] && renderPlayer(players[1], 'TopLeft')}
+          
+          {/* Rival 2 (arriba derecha) */}
+          {players[3] && renderPlayer(players[3], 'TopRight')}
+          
+          {/* Compañero (centro) */}
+          {players[2] && renderPlayer(players[2], 'Center')}
+        </View>
+
+        {/* Mano del jugador humano */}
+        {humanPlayer && (
+          <View style={styles.humanPlayerArea}>
+            <Text style={styles.humanPlayerLabel}>TU MANO</Text>
+            <View style={styles.humanHand}>
+              {humanPlayer.hand.map((card, idx) => renderCard(card, idx, true))}
+            </View>
+          </View>
+        )}
+
+        {/* Botones de acción */}
+        <View style={styles.actionButtons}>
+          {canCallEnvido && !envidoCalled && currentPlayer?.isHuman && (
             <Button
               mode="contained"
-              onPress={startNewGame}
-              style={styles.playAgainButton}
+              onPress={handleEnvido}
+              style={styles.envidoButton}
+              labelStyle={styles.buttonLabel}
+              icon="cards-diamond"
             >
-              Jugar de nuevo
+              Envido
             </Button>
-            <Button
-              mode="outlined"
-              onPress={handleBackToMenu}
-              style={styles.menuButton}
-              labelStyle={styles.menuButtonLabel}
-            >
-              Volver al menú
-            </Button>
-          </Animatable.View>
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.gameContainer}>
+          )}
           
-          {/* Muestra e Información */}
-          {muestra && (
-            <Animatable.View animation="flipInY" style={styles.muestraContainer}>
-              <View style={styles.muestraHeader}>
-                <View style={styles.muestraInfo}>
-                  <Text style={styles.muestraLabel}>🎴 MUESTRA</Text>
-                  <Text style={styles.muestraDescription}>
-                    Las piezas son todos los <Text style={styles.highlight}>{muestra.value}</Text>
-                  </Text>
-                  <Text style={styles.muestraHint}>
-                    ♠ → ♣ → ♦ → ♥ (orden de palos)
-                  </Text>
-                </View>
-                <View style={styles.muestraCardContainer}>
-                  {renderCard(muestra)}
-                </View>
-              </View>
-            </Animatable.View>
+          {canCallEnvido && !florCalled && humanPlayer && hasFlor(humanPlayer.hand) && currentPlayer?.isHuman && (
+            <Button
+              mode="contained"
+              onPress={handleFlor}
+              style={styles.florButton}
+              labelStyle={styles.buttonLabel}
+              icon="flower"
+            >
+              Flor
+            </Button>
           )}
-
-          {/* Mensaje */}
-          {message && (
-            <Animatable.View animation="fadeIn" style={styles.messageContainer}>
-              <Text style={styles.messageText}>{message}</Text>
-            </Animatable.View>
+          
+          {currentPlayer?.isHuman && (
+            <Button
+              mode="contained"
+              onPress={handleTruco}
+              style={styles.trucoButton}
+              labelStyle={styles.buttonLabel}
+              disabled={trucoLevel >= 3}
+              icon="fire"
+            >
+              {trucoLevel === 0 ? 'Truco' : trucoLevel === 1 ? 'Re Truco' : trucoLevel === 2 ? 'Vale 4' : 'Máximo'}
+            </Button>
           )}
-
-          {/* Mesa - Baza actual */}
-          <View style={styles.table}>
-            <Text style={styles.tableLabel}>Mesa</Text>
-            <View style={styles.bazaContainer}>
-              {currentBaza.length === 0 ? (
-                <Text style={styles.emptyTableText}>No hay cartas en la mesa</Text>
-              ) : (
-                currentBaza.map((play, index) => {
-                  const player = players.find(p => p.id === play.player);
-                  return (
-                    <Animatable.View
-                      key={index}
-                      animation="zoomIn"
-                      style={styles.playedCardContainer}
-                    >
-                      <Text style={styles.playerLabel}>{player?.name}</Text>
-                      {renderCard(play.card)}
-                    </Animatable.View>
-                  );
-                })
-              )}
-            </View>
-          </View>
-
-          {/* Información */}
-          <View style={styles.infoRow}>
-            <Badge style={styles.badge}>Baza {roundNumber + 1}/3</Badge>
-            <Badge style={styles.badge}>
-              Bazas: {bazasWon.team1} - {bazasWon.team2}
-            </Badge>
-            {trucoLevel > 0 && (
-              <Badge style={styles.badgeTruco}>
-                {['Truco', 'Re Truco', 'Vale 4'][trucoLevel - 1]}
-              </Badge>
-            )}
-          </View>
-
-          {/* Turno actual */}
-          <View style={styles.turnIndicator}>
-            <Text style={styles.turnText}>
-              Turno: <Text style={styles.turnPlayerName}>{currentPlayer?.name}</Text>
-            </Text>
-          </View>
-
-          {/* Mano del jugador humano */}
-          {humanPlayer && (
-            <View style={styles.handSection}>
-              <View style={styles.handHeader}>
-                <Text style={styles.handLabel}>🎴 Tu Mano</Text>
-                {currentPlayer?.isHuman && (
-                  <Text style={styles.handHint}>👆 Toca una carta para seleccionarla</Text>
-                )}
-                {!currentPlayer?.isHuman && (
-                  <Text style={styles.handHintWait}>⏳ Esperando turno...</Text>
-                )}
-              </View>
-              <View style={styles.handCards}>
-                {humanPlayer.hand.length === 0 ? (
-                  <Text style={styles.noCardsText}>No te quedan cartas</Text>
-                ) : (
-                  humanPlayer.hand.map(card => 
-                    renderCard(
-                      card,
-                      currentPlayer?.isHuman ? () => setSelectedCard(card) : null,
-                      selectedCard === card
-                    )
-                  )
-                )}
-              </View>
-            </View>
+          
+          {currentPlayer?.isHuman && selectedCard && (
+            <Button
+              mode="contained"
+              onPress={handlePlayCard}
+              style={styles.playButton}
+              labelStyle={styles.buttonLabel}
+              icon="play"
+            >
+              Jugar Carta
+            </Button>
           )}
-
-          {/* Acciones */}
-          <View style={styles.actionsContainer}>
-            {currentPlayer?.isHuman && selectedCard && (
-              <Animatable.View animation="bounceIn">
-                <Button
-                  mode="contained"
-                  onPress={handlePlayCard}
-                  style={styles.playButton}
-                  icon="cards-playing-outline"
-                  contentStyle={styles.playButtonContent}
-                >
-                  JUGAR {cardToString(selectedCard)}
-                </Button>
-              </Animatable.View>
-            )}
-            
-            {currentPlayer?.isHuman && !selectedCard && (
-              <View style={styles.instructionBox}>
-                <Text style={styles.instructionText}>
-                  ℹ️ Selecciona una carta de tu mano para jugarla
-                </Text>
-              </View>
-            )}
-            
-            <View style={styles.callButtons}>
-              {canCallEnvido && !envidoCalled && currentPlayer?.isHuman && (
-                <Button
-                  mode="outlined"
-                  onPress={handleEnvido}
-                  style={[styles.callButton, styles.envidoButton]}
-                  labelStyle={styles.callButtonLabel}
-                  icon="cards-diamond"
-                >
-                  Envido
-                </Button>
-              )}
-              {canCallEnvido && !florCalled && currentPlayer?.isHuman && hasFlor(players.find(p => p.isHuman)?.hand || []) && (
-                <Button
-                  mode="outlined"
-                  onPress={handleFlor}
-                  style={[styles.callButton, styles.florButton]}
-                  labelStyle={styles.callButtonLabel}
-                  icon="flower"
-                >
-                  Flor
-                </Button>
-              )}
-              {currentPlayer?.isHuman && (
-                <Button
-                  mode="outlined"
-                  onPress={handleTruco}
-                  style={[styles.callButton, styles.trucoButton]}
-                  labelStyle={styles.callButtonLabel}
-                  disabled={trucoLevel >= 3}
-                  icon="fire"
-                >
-                  {trucoLevel === 0 ? 'Truco!' : trucoLevel === 1 ? 'Re Truco!' : 'Vale 4!'}
-                </Button>
-              )}
-            </View>
-          </View>
-
-        </ScrollView>
-      )}
+        </View>
+      </ScrollView>
     </LinearGradient>
   );
 };
@@ -837,302 +777,227 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 50,
+    paddingTop: 40,
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
-  backButton: {
-    color: '#FFFFFF',
-    fontSize: 16,
-  },
-  scoreBoard: {
+  scoreboard: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
     gap: 20,
+    marginTop: 8,
   },
-  teamScoreBox: {
+  scoreTeam: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,
-    minWidth: 100,
+    minWidth: 120,
   },
-  teamLabel: {
+  scoreLabel: {
     color: '#FFFFFF',
     fontSize: 12,
-    opacity: 0.9,
+    fontWeight: '600',
     marginBottom: 4,
   },
-  scoreText: {
+  scoreValue: {
+    color: '#FFFFFF',
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
-  scoreSeparator: {
-    fontSize: 32,
+  scoreVs: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    opacity: 0.6,
   },
-  gameContainer: {
-    padding: 16,
-    gap: 16,
-  },
-  muestraContainer: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 2,
-    borderColor: '#FFD700',
-  },
-  muestraHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  muestraInfo: {
+  gameArea: {
     flex: 1,
   },
+  gameContent: {
+    padding: 16,
+  },
+  muestraContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   muestraLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0038A8',
-    marginBottom: 4,
-  },
-  muestraDescription: {
+    color: '#FFD700',
     fontSize: 14,
-    color: '#333',
-    marginBottom: 4,
-  },
-  muestraHint: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  highlight: {
     fontWeight: 'bold',
-    color: '#FF6B35',
-    fontSize: 16,
+    marginBottom: 8,
   },
-  muestraCardContainer: {
-    transform: [{ scale: 0.9 }],
+  muestraCard: {
+    transform: [{ rotate: '15deg' }],
   },
   messageContainer: {
-    backgroundColor: 'rgba(255,107,53,0.95)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     padding: 12,
     borderRadius: 8,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   messageText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  table: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 12,
-    padding: 16,
-    minHeight: 180,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  tableLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  bazaContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  emptyTableText: {
-    color: '#FFFFFF',
-    opacity: 0.6,
     fontSize: 14,
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  playedCardContainer: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  playerLabel: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-    flexWrap: 'wrap',
-  },
-  badge: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-  },
-  badgeTruco: {
-    backgroundColor: '#FF6B35',
-  },
-  turnIndicator: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  turnText: {
-    fontSize: 15,
-    color: '#333',
-  },
-  turnPlayerName: {
-    fontWeight: 'bold',
-    color: '#0038A8',
-  },
-  handSection: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: 'rgba(0,56,168,0.3)',
-  },
-  handHeader: {
-    marginBottom: 12,
-  },
-  handLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0038A8',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  handHint: {
-    fontSize: 13,
-    color: '#FF6B35',
     textAlign: 'center',
     fontWeight: '600',
   },
-  handHintWait: {
-    fontSize: 13,
-    color: '#999',
-    textAlign: 'center',
+  bazasInfo: {
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  handCards: {
+  bazasText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  bazaContainer: {
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  bazaTitle: {
+    color: '#FFD700',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  bazaCards: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  bazaCard: {
+    alignItems: 'center',
+  },
+  bazaPlayerName: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  gameTable: {
+    minHeight: 200,
+    marginBottom: 16,
+  },
+  playerContainer: {
+    marginBottom: 12,
+  },
+  playerInfo: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  playerActive: {
+    backgroundColor: 'rgba(255,215,0,0.3)',
+    borderWidth: 2,
+    borderColor: '#FFD700',
+  },
+  playerName: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  playerCards: {
+    color: '#FFFFFF',
+    fontSize: 12,
+  },
+  botCards: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cardBack: {
+    width: 60,
+    height: 90,
+    backgroundColor: '#8B4513',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#654321',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardBackText: {
+    fontSize: 32,
+  },
+  humanPlayerArea: {
+    marginBottom: 16,
+  },
+  humanPlayerLabel: {
+    color: '#FFD700',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  humanHand: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 12,
-    flexWrap: 'wrap',
-    minHeight: 130,
-    alignItems: 'center',
-  },
-  noCardsText: {
-    color: '#999',
-    fontSize: 14,
-    fontStyle: 'italic',
   },
   card: {
-    width: 85,
+    width: 80,
     height: 120,
-    borderRadius: 10,
-    elevation: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#CCCCCC',
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    borderWidth: 2,
-    borderColor: '#8B4513',
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   cardSelected: {
+    borderColor: '#FFD700',
     borderWidth: 4,
-    borderColor: '#FF6B35',
-    elevation: 10,
-    transform: [{ translateY: -15 }, { scale: 1.05 }],
+    transform: [{ translateY: -10 }],
   },
-  cardBorder: {
-    flex: 1,
-    padding: 6,
-    justifyContent: 'space-between',
+  cardPieza: {
+    backgroundColor: '#FFF9E6',
   },
-  cardTopCorner: {
-    alignItems: 'flex-start',
-  },
-  cardCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  cardBottomCorner: {
-    alignItems: 'flex-end',
-    transform: [{ rotate: '180deg' }],
-  },
-  cardValueSmall: {
-    fontSize: 16,
+  cardValue: {
+    fontSize: 36,
     fontWeight: 'bold',
   },
-  cardSuitSmall: {
-    fontSize: 16,
+  cardSuit: {
+    fontSize: 28,
+    marginTop: 4,
   },
-  cardValueLarge: {
-    fontSize: 32,
-    fontWeight: 'bold',
+  piezaBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
   },
-  cardSuitLarge: {
-    fontSize: 40,
+  piezaText: {
+    fontSize: 18,
   },
-  actionsContainer: {
-    gap: 12,
-    paddingBottom: 20,
-  },
-  playButton: {
-    backgroundColor: '#FF6B35',
-    borderRadius: 10,
-  },
-  playButtonContent: {
-    height: 50,
-  },
-  instructionBox: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    padding: 12,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#0038A8',
-  },
-  instructionText: {
-    color: '#333',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  callButtons: {
+  actionButtons: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
     justifyContent: 'center',
-  },
-  callButton: {
-    flex: 1,
-    borderWidth: 2,
-    borderRadius: 8,
+    gap: 12,
+    marginTop: 16,
   },
   envidoButton: {
-    borderColor: '#4CAF50',
-    backgroundColor: 'rgba(76,175,80,0.1)',
+    backgroundColor: '#4CAF50',
   },
   florButton: {
-    borderColor: '#9C27B0',
-    backgroundColor: 'rgba(156,39,176,0.1)',
+    backgroundColor: '#9C27B0',
   },
   trucoButton: {
-    borderColor: '#FF6B35',
-    backgroundColor: 'rgba(255,107,53,0.1)',
+    backgroundColor: '#FF6B35',
   },
-  callButtonLabel: {
-    color: '#FFFFFF',
+  playButton: {
+    backgroundColor: '#2196F3',
+  },
+  buttonLabel: {
+    fontSize: 14,
     fontWeight: 'bold',
   },
   endGameContainer: {
@@ -1148,32 +1013,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     maxWidth: 400,
-    elevation: 10,
   },
   endGameTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#0038A8',
-    marginBottom: 20,
+    marginBottom: 30,
+    textAlign: 'center',
   },
-  endGameScore: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#FF6B35',
+  finalScores: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
     marginBottom: 30,
   },
-  playAgainButton: {
-    backgroundColor: '#FF6B35',
-    marginBottom: 12,
-    width: '100%',
+  finalScoreBox: {
+    alignItems: 'center',
   },
-  menuButton: {
-    borderColor: '#0038A8',
-    width: '100%',
+  finalScoreLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
   },
-  menuButtonLabel: {
+  finalScoreValue: {
+    fontSize: 48,
+    fontWeight: 'bold',
     color: '#0038A8',
   },
+  finalScoreVs: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#666',
+  },
+  playAgainButton: {
+    backgroundColor: '#0038A8',
+    paddingHorizontal: 30,
+    marginBottom: 12,
+  },
+  playAgainButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  backButtonText: {
+    color: '#0038A8',
+    fontSize: 14,
+  },
+  playerTopLeft: {},
+  playerTopRight: {},
+  playerCenter: {},
 });
 
 export default GameScreen;
