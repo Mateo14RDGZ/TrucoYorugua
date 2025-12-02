@@ -59,8 +59,9 @@ export default function RulesScreen({ navigation }) {
           <RulePoint text="RE TRUCO: Sube a 3 puntos" />
           <RulePoint text="VALE CUATRO: Sube a 4 puntos" />
           <RulePoint text="Se gana con 2 de 3 bazas" />
-          <RulePoint text="Si hay empate en una baza, se va a la segunda" />
-          <RulePoint text="Si empatan la primera y segunda, gana quien ganó la primera" />
+          <RulePoint text="Si una baza empata (parda), se continúa" />
+          <RulePoint text="Si empatan la primera y segunda baza, gana quien ganó la primera" />
+          <RulePoint text="Si todas son parda, gana quien es mano (quien reparte)" />
         </RuleCard>
 
         {/* EL ENVIDO */}
@@ -69,13 +70,13 @@ export default function RulesScreen({ navigation }) {
           icon="dice"
           description="Sumando cartas del mismo palo"
         >
-          <RulePoint text="Se juega ANTES de tirar las cartas" />
-          <RulePoint text="Se suman las cartas del mismo palo + 20" />
+          <RulePoint text="Se canta ANTES de jugar la primera carta" />
+          <RulePoint text="Se suman las 2 cartas mayores del mismo palo + 20" />
           <RulePoint text="Figuras (10, 11, 12) valen 0 para el envido" />
+          <RulePoint text="Si solo tienes 1 carta de un palo, ese es tu envido" />
           <RulePoint text="ENVIDO: Vale 2 puntos" />
-          <RulePoint text="REAL ENVIDO: Vale 3 puntos" />
-          <RulePoint text="FALTA ENVIDO: Vale lo que falta para 30 puntos" />
           <RulePoint text="Ejemplo: 7♠ + 6♠ = 7 + 6 + 20 = 33 puntos" />
+          <RulePoint text="Gana quien tenga el envido más alto" />
         </RuleCard>
 
         {/* LA FLOR */}
@@ -85,9 +86,11 @@ export default function RulesScreen({ navigation }) {
           description="Tres cartas del mismo palo"
         >
           <RulePoint text="Se canta cuando tienes 3 cartas del mismo palo" />
-          <RulePoint text="Vale 3 puntos" />
+          <RulePoint text="Se canta ANTES de jugar la primera carta" />
+          <RulePoint text="Vale 3 puntos para el ganador" />
           <RulePoint text="Se suman las 3 cartas + 20" />
-          <RulePoint text="Si todos tienen flor, gana la más alta" />
+          <RulePoint text="Figuras (10, 11, 12) valen 0" />
+          <RulePoint text="Si varios tienen flor, gana la más alta" />
           <RulePoint text="Ejemplo: 7♠ + 6♠ + 4♠ = 7 + 6 + 4 + 20 = 37 puntos" />
         </RuleCard>
 

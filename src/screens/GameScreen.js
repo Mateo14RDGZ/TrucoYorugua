@@ -34,8 +34,11 @@ const GameScreen = ({ navigation }) => {
   const [trucoPoints, setTrucoPoints] = useState(1);
   const [envidoPhase, setEnvidoPhase] = useState(false);
   const [envidoCalled, setEnvidoCalled] = useState(false);
+  const [florCalled, setFlorCalled] = useState(false);
   const [lastWinner, setLastWinner] = useState(null);
+  const [firstBazaWinner, setFirstBazaWinner] = useState(null);
   const [message, setMessage] = useState('');
+  const [canCallEnvido, setCanCallEnvido] = useState(true);
 
   // Inicializar juego
   useEffect(() => {
@@ -68,8 +71,18 @@ const GameScreen = ({ navigation }) => {
     setTrucoPoints(1);
     setEnvidoPhase(true);
     setEnvidoCalled(false);
+    setFlorCalled(false);
+    setCanCallEnvido(true);
     setLastWinner(null);
-    setMessage('¡Nueva mano! La muestra es: ' + cardToString(muestraCard));
+    setFirstBazaWinner(null);
+    
+    // Detectar Flor automáticamente
+    const humanHasFlor = hasFlor(newPlayers[0].hand);
+    if (humanHasFlor) {
+      setMessage('¡Nueva mano! Muestra: ' + cardToString(muestraCard) + ' - ¡Tienes FLOR!');
+    } else {
+      setMessage('¡Nueva mano! La muestra es: ' + cardToString(muestraCard));
+    }
   };
 
   // Crear mazo
@@ -96,6 +109,55 @@ const GameScreen = ({ navigation }) => {
   // Convertir carta a string
   const cardToString = (card) => {
     return `${card.value}${SUIT_SYMBOLS[card.suit]}`;
+  };
+
+  // Verificar si tiene Flor (3 cartas del mismo palo)
+  const hasFlor = (hand) => {
+    const suitCount = {};
+    hand.forEach(card => {
+      suitCount[card.suit] = (suitCount[card.suit] || 0) + 1;
+    });
+    return Object.values(suitCount).some(count => count === 3);
+  };
+
+  // Calcular puntos de Envido
+  const calculateEnvido = (hand) => {
+    const bySuit = {};
+    hand.forEach(card => {
+      if (!bySuit[card.suit]) bySuit[card.suit] = [];
+      const envidoValue = [10, 11, 12].includes(card.value) ? 0 : card.value;
+      bySuit[card.suit].push(envidoValue);
+    });
+
+    let maxEnvido = 0;
+    Object.values(bySuit).forEach(cards => {
+      if (cards.length >= 2) {
+        cards.sort((a, b) => b - a);
+        const envido = cards[0] + cards[1] + 20;
+        maxEnvido = Math.max(maxEnvido, envido);
+      } else if (cards.length === 1) {
+        maxEnvido = Math.max(maxEnvido, cards[0]);
+      }
+    });
+
+    return maxEnvido;
+  };
+
+  // Calcular puntos de Flor
+  const calculateFlor = (hand) => {
+    const bySuit = {};
+    hand.forEach(card => {
+      if (!bySuit[card.suit]) bySuit[card.suit] = [];
+      const florValue = [10, 11, 12].includes(card.value) ? 0 : card.value;
+      bySuit[card.suit].push(florValue);
+    });
+
+    for (const cards of Object.values(bySuit)) {
+      if (cards.length === 3) {
+        return cards.reduce((sum, val) => sum + val, 0) + 20;
+      }
+    }
+    return 0;
   };
 
   // Obtener orden dinámico según muestra
@@ -159,6 +221,12 @@ const GameScreen = ({ navigation }) => {
 
   // Jugar carta de cualquier jugador
   const playCardForPlayer = (player, card) => {
+    // Primera carta jugada: cerrar fase de Envido
+    if (currentBaza.length === 0 && canCallEnvido) {
+      setCanCallEnvido(false);
+      setEnvidoPhase(false);
+    }
+
     // Agregar carta a la baza actual
     const newBaza = [...currentBaza, { player: player.id, card }];
     setCurrentBaza(newBaza);
@@ -248,19 +316,33 @@ const GameScreen = ({ navigation }) => {
 
   // Evaluar baza
   const evaluateBaza = (baza, currentPlayers) => {
-    // Encontrar ganador de la baza
+    // Encontrar ganador de la baza (null si hay empate)
     let winningPlay = baza[0];
+    let hasDrawn = false;
     
     baza.forEach(play => {
-      if (compareCards(play.card, winningPlay.card) > 0) {
+      const comparison = compareCards(play.card, winningPlay.card);
+      if (comparison > 0) {
         winningPlay = play;
+        hasDrawn = false;
+      } else if (comparison === 0 && play !== winningPlay) {
+        hasDrawn = true;
       }
     });
 
     const winner = currentPlayers.find(p => p.id === winningPlay.player);
     const winningTeam = winner.team === 1 ? 'team1' : 'team2';
 
-    setMessage(`¡${winner.name} gana la baza!`);
+    // Guardar ganador de primera baza para regla de empates
+    if (roundNumber === 0) {
+      setFirstBazaWinner(winningPlay.player);
+    }
+
+    if (hasDrawn) {
+      setMessage(`Baza empatada (parda)`);
+    } else {
+      setMessage(`¡${winner.name} gana la baza!`);
+    }
     setLastWinner(winner.id);
 
     // Actualizar bazas ganadas
@@ -300,9 +382,16 @@ const GameScreen = ({ navigation }) => {
       roundWinner = 'team2';
       setMessage('El equipo rival ganó la mano');
     } else {
-      // Empate: gana el que ganó la primera baza
-      roundWinner = lastWinner % 2 === 0 ? 'team1' : 'team2';
-      setMessage('¡Empate! Gana quien ganó la primera baza');
+      // Empate: gana el que ganó la primera baza (si la hubo)
+      if (firstBazaWinner !== null) {
+        const firstWinnerTeam = players.find(p => p.id === firstBazaWinner)?.team;
+        roundWinner = firstWinnerTeam === 1 ? 'team1' : 'team2';
+        setMessage('¡Empate! Gana quien ganó la primera baza');
+      } else {
+        // Si la primera baza fue parda, gana mano
+        roundWinner = 'team1'; // El que reparte (jugador 0)
+        setMessage('Todas pardas - Gana la mano');
+      }
     }
 
     // Sumar puntos
@@ -339,8 +428,8 @@ const GameScreen = ({ navigation }) => {
 
   // Cantar envido
   const handleEnvido = () => {
-    if (!envidoPhase) {
-      Alert.alert('El envido se canta antes de jugar');
+    if (!canCallEnvido) {
+      Alert.alert('El envido se canta antes de la primera carta');
       return;
     }
     
@@ -349,13 +438,91 @@ const GameScreen = ({ navigation }) => {
       return;
     }
 
+    const humanPlayer = players.find(p => p.isHuman);
+    const humanEnvido = calculateEnvido(humanPlayer.hand);
+
+    // Calcular envido de todos los jugadores
+    const allEnvidos = players.map(p => ({
+      id: p.id,
+      name: p.name,
+      team: p.team,
+      envido: calculateEnvido(p.hand)
+    }));
+
+    const maxEnvido = Math.max(...allEnvidos.map(e => e.envido));
+    const winner = allEnvidos.find(e => e.envido === maxEnvido);
+    const winningTeam = winner.team === 1 ? 'team1' : 'team2';
+
     setEnvidoCalled(true);
-    setMessage('¡Envido! (Funcionalidad completa en desarrollo)');
+    setMessage(`¡Envido! ${winner.name} gana con ${maxEnvido} puntos`);
     
-    // Desactivar fase de envido después del primer canto
-    setTimeout(() => {
-      setEnvidoPhase(false);
-    }, 2000);
+    // Sumar 2 puntos al ganador del envido
+    const newScores = {
+      ...scores,
+      [winningTeam]: scores[winningTeam] + 2
+    };
+    setScores(newScores);
+    
+    // Verificar si alguien ganó
+    if (newScores.team1 >= 30 || newScores.team2 >= 30) {
+      setTimeout(() => {
+        setGamePhase('gameEnd');
+      }, 2000);
+    }
+  };
+
+  // Cantar Flor
+  const handleFlor = () => {
+    if (!canCallEnvido) {
+      Alert.alert('La flor se canta antes de la primera carta');
+      return;
+    }
+
+    const humanPlayer = players.find(p => p.isHuman);
+    if (!hasFlor(humanPlayer.hand)) {
+      Alert.alert('No tienes Flor', 'Necesitas 3 cartas del mismo palo');
+      return;
+    }
+
+    if (florCalled) {
+      Alert.alert('Ya se cantó flor');
+      return;
+    }
+
+    const humanFlor = calculateFlor(humanPlayer.hand);
+
+    // Ver si otros tienen flor
+    const allFlores = players.filter(p => hasFlor(p.hand)).map(p => ({
+      id: p.id,
+      name: p.name,
+      team: p.team,
+      flor: calculateFlor(p.hand)
+    }));
+
+    if (allFlores.length === 0) {
+      setMessage('Nadie tiene Flor');
+      return;
+    }
+
+    const maxFlor = Math.max(...allFlores.map(f => f.flor));
+    const winner = allFlores.find(f => f.flor === maxFlor);
+    const winningTeam = winner.team === 1 ? 'team1' : 'team2';
+
+    setFlorCalled(true);
+    setMessage(`¡Flor! ${winner.name} gana con ${maxFlor} puntos`);
+    
+    // Sumar 3 puntos al ganador de la flor
+    const newScores = {
+      ...scores,
+      [winningTeam]: scores[winningTeam] + 3
+    };
+    setScores(newScores);
+
+    if (newScores.team1 >= 30 || newScores.team2 >= 30) {
+      setTimeout(() => {
+        setGamePhase('gameEnd');
+      }, 2000);
+    }
   };
 
   // Volver al menú
@@ -622,7 +789,7 @@ const GameScreen = ({ navigation }) => {
             )}
             
             <View style={styles.callButtons}>
-              {envidoPhase && !envidoCalled && currentPlayer?.isHuman && (
+              {canCallEnvido && !envidoCalled && currentPlayer?.isHuman && (
                 <Button
                   mode="outlined"
                   onPress={handleEnvido}
@@ -631,6 +798,17 @@ const GameScreen = ({ navigation }) => {
                   icon="cards-diamond"
                 >
                   Envido
+                </Button>
+              )}
+              {canCallEnvido && !florCalled && currentPlayer?.isHuman && hasFlor(players.find(p => p.isHuman)?.hand || []) && (
+                <Button
+                  mode="outlined"
+                  onPress={handleFlor}
+                  style={[styles.callButton, styles.florButton]}
+                  labelStyle={styles.callButtonLabel}
+                  icon="flower"
+                >
+                  Flor
                 </Button>
               )}
               {currentPlayer?.isHuman && (
@@ -944,6 +1122,10 @@ const styles = StyleSheet.create({
   envidoButton: {
     borderColor: '#4CAF50',
     backgroundColor: 'rgba(76,175,80,0.1)',
+  },
+  florButton: {
+    borderColor: '#9C27B0',
+    backgroundColor: 'rgba(156,39,176,0.1)',
   },
   trucoButton: {
     borderColor: '#FF6B35',
